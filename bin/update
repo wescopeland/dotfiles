@@ -1,0 +1,14 @@
+#!/bin/bash
+#
+# Pull the latest dotfiles and install anything new in the Brewfile.
+# This does not upgrade packages that are already installed.
+
+set -euo pipefail
+
+DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+git -C "$DOTFILES" pull --ff-only
+brew bundle --no-upgrade --file="$DOTFILES/config/Brewfile"
+
+echo ""
+echo "Done. Open a new terminal, or run: exec zsh"

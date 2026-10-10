@@ -1,0 +1,89 @@
+#!/bin/bash
+#
+# Set up this machine: Homebrew packages, then symlinks into $HOME.
+# Safe to run again. Files that are in the way move to a backup folder.
+#
+#   bin/install          ask first, then do everything
+#   bin/install --yes    do not ask
+#   bin/install --no-brew  symlinks only
+
+set -euo pipefail
+
+DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
+
+assume_yes=0
+use_brew=1
+for arg in "$@"; do
+  case "$arg" in
+    --yes|-y) assume_yes=1 ;;
+    --no-brew) use_brew=0 ;;
+    *) echo "Unknown option: $arg" >&2; exit 1 ;;
+  esac
+done
+
+BLUE='\033[0;34m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+step()    { echo ""; echo -e "${BLUE}➜${NC} $1"; }
+success() { echo -e "${GREEN}✓${NC} $1"; }
+warn()    { echo -e "${YELLOW}⚠${NC} $1"; }
+
+# Link $2 to $1. A file already in the way moves to $BACKUP_DIR first.
+link() {
+  local src="$1" dest="$2"
+  mkdir -p "$(dirname "$dest")"
+  if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
+    return
+  fi
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    mkdir -p "$BACKUP_DIR"
+    mv "$dest" "$BACKUP_DIR/$(basename "$dest")"
+    warn "Moved the existing $dest to $BACKUP_DIR"
+  fi
+  ln -s "$src" "$dest"
+  echo "  $dest -> $src"
+}
+
+step "Dotfiles in $DOTFILES"
+if [ "$assume_yes" -ne 1 ]; then
+  read -p "Install into $HOME? (y/n) " -n 1 -r
+  echo ""
+  [[ $REPLY =~ ^[Yy]$ ]] || { echo "Cancelled."; exit 0; }
+fi
+
+if [ "$use_brew" -eq 1 ]; then
+  step "Homebrew"
+  if ! command -v brew >/dev/null 2>&1 && [ ! -x /opt/homebrew/bin/brew ]; then
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  fi
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+  success "Homebrew is available"
+
+  step "Packages from config/Brewfile"
+  brew bundle --no-upgrade --file="$DOTFILES/config/Brewfile" || warn "Some packages failed. Run the command again to retry."
+fi
+
+step "Symlinks"
+for file in .zshenv .zprofile .zshrc; do
+  link "$DOTFILES/home/$file" "$HOME/$file"
+done
+success "Symlinks are in place"
+
+step "Commit guard"
+if git -C "$DOTFILES" rev-parse --git-dir >/dev/null 2>&1; then
+  git -C "$DOTFILES" config core.hooksPath .githooks
+  success "Commits in this repo now run .githooks/pre-commit"
+else
+  warn "$DOTFILES is not a git checkout, so the commit guard was not enabled"
+fi
+
+step "Secrets"
+if [ ! -f "$DOTFILES/.env" ]; then
+  cp "$DOTFILES/.env.example" "$DOTFILES/.env"
+  chmod 600 "$DOTFILES/.env"
+  warn "Created $DOTFILES/.env from .env.example. Fill in the values."
+else
+  success "$DOTFILES/.env already exists"
+fi
+
+step "Done"
+echo "  Open a new terminal, or run: exec zsh"

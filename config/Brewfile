@@ -1,0 +1,30 @@
+# Everything the shell config and the commit hook call. `bin/install` runs `brew bundle` on this.
+
+# Shell
+brew "starship"
+brew "zsh-autosuggestions"
+brew "autojump"
+brew "eza"
+
+# Version managers
+brew "mise"
+brew "pyenv"
+brew "chruby"
+
+# Libraries and toolchains that .exports puts on PATH
+brew "bzip2"
+brew "libpq"
+brew "ruby", link: false
+brew "gradle@7"
+
+# Project helpers in home/projects
+brew "hivemind"
+brew "rclone"
+brew "pv"
+brew "zstd"
+brew "watchexec"
+cask "ngrok"
+
+# Commit guard (.githooks/pre-commit)
+brew "gitleaks"
+brew "shellcheck"

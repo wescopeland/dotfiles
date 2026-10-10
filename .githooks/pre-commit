@@ -1,0 +1,57 @@
+#!/bin/bash
+#
+# Runs before every commit. A failed check blocks the commit.
+# bin/install turns this on with: git config core.hooksPath .githooks
+#
+# Checks, on what is staged:
+#   1. .env is not staged, even after `git add -f`.
+#   2. gitleaks finds no secrets.
+#   3. Every zsh file passes `zsh -n`.
+#   4. Every bash script passes shellcheck.
+
+set -uo pipefail
+
+say() { printf 'pre-commit: %s\n' "$*" >&2; }
+
+for tool in gitleaks shellcheck zsh; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    say "$tool is not installed. Run bin/install, then commit again."
+    exit 1
+  fi
+done
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+failed=0
+
+if grep -qE '(^|/)\.env$' <<<"$staged"; then
+  say ".env is staged. It holds secrets. Run: git restore --staged .env"
+  failed=1
+fi
+
+if ! gitleaks git --staged --redact --no-banner; then
+  say "gitleaks found a possible secret. Remove it from the staged files."
+  failed=1
+fi
+
+# Files under home/ and the env template are read by zsh. The staged content
+# is checked, which can differ from the file on disk after a partial add.
+while IFS= read -r file; do
+  [ -n "$file" ] || continue
+  if ! git show ":$file" | zsh -n 2>&1; then
+    say "zsh syntax error in $file"
+    failed=1
+  fi
+done < <(grep -E '^(home/|\.env\.example$)' <<<"$staged")
+
+while IFS= read -r file; do
+  [ -n "$file" ] || continue
+  if ! git show ":$file" | shellcheck -s bash -S warning -; then
+    say "shellcheck failed for $file"
+    failed=1
+  fi
+done < <(grep -E '^(bin/|\.githooks/)' <<<"$staged")
+
+if [ "$failed" -ne 0 ]; then
+  say "Commit blocked."
+  exit 1
+fi
