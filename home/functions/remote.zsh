@@ -18,3 +18,22 @@ function remote() {
   # works too: `remote user@host`.
   open "vnc://$1"
 }
+
+# Tab completion: the other machines on the Tailscale network. The first line
+# of `tailscale status` is this machine, so it is skipped. Without Tailscale
+# there is nothing to offer, and `remote` still works with a typed name.
+function _remote() {
+  emulate -L zsh
+
+  (( CURRENT == 2 )) || return 1
+  command -v tailscale >/dev/null 2>&1 || return 1
+
+  local -a machines
+  machines=(${(f)"$(tailscale status 2>/dev/null \
+    | awk 'NR > 1 && $1 ~ /^[0-9]/ { print $2 ":" ($0 ~ /offline/ ? "offline" : "online") }')"})
+  (( ${#machines} )) || return 1
+
+  _describe -t machines 'Tailscale machine' machines
+}
+
+(( $+functions[compdef] )) && compdef _remote remote
