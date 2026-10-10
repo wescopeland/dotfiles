@@ -16,3 +16,10 @@ source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 
 # Resolve tool runtimes through mise shims before system binaries.
 export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+# Java 17 for Gradle and the advisor previews. Login shells need it too, not
+# only interactive ones, so it lives here and not in .exports.
+if [ -d "$HOMEBREW_PREFIX/opt/openjdk@17" ]; then
+  export JAVA_HOME="$HOMEBREW_PREFIX/opt/openjdk@17"
+  export PATH="$JAVA_HOME/bin:$PATH"
+fi
