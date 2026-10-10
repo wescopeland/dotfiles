@@ -22,4 +22,5 @@ Installation is idempotent, so it is safe to run multiple times. Use `--yes` to 
 - `ll` and `tree` through eza
 - mise, pyenv and chruby for language versions
 - `code <name>` and `cd <name>` that find git worktrees by name
+- `remote <name>` that opens a Screen Sharing session, such as `remote server-mbp`
 - A pre-commit hook that blocks secrets, zsh syntax errors and shellcheck warnings
