@@ -63,8 +63,6 @@ Use commitizen-style commits. Commitizen follows the [Conventional Commits](http
 ```
 <type>: <description>
 
-[optional body]
-
 [optional footer]
 ```
 
@@ -91,7 +89,7 @@ Use commitizen-style commits. Commitizen follows the [Conventional Commits](http
 2. **Use the imperative mood.** Write as if finishing "If applied, this commit will...". Write `add`, not `added` or `adds`.
 3. **Match the guide's examples.** Start the description in lowercase and end it without a period.
 4. **Make one change per commit.** Do not mix unrelated changes. If several small commits are one change, squash them.
-5. **Use the body for the reason.** Explain why you made the change, and how it differs from before, when the subject is not enough. Separate the body from the subject with a blank line.
+5. **Do not write a commit body.** The subject carries the whole message. If it cannot say what the commit does, the commit does too much, so split it.
 6. **Think about the changelog.** Your subject may appear there, so it must make sense on its own. Use `build`, `chore` or `ci` for changes that should stay out of it.
 7. **Mark breaking changes in the footer.** Add `BREAKING CHANGE: <what breaks and what to do>`. Do not use `!` in the subject, because this repo does not enable it.
 
