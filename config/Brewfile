@@ -17,6 +17,9 @@ brew "libpq"
 brew "ruby", link: false
 brew "gradle@7"
 
+# .zshenv puts the gcloud SDK's bin folder, which holds kubectl, on PATH
+cask "gcloud-cli"
+
 # Project helpers in home/projects
 brew "hivemind"
 brew "rclone"

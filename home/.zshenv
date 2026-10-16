@@ -6,6 +6,10 @@ case ":$PATH:" in
   *":/opt/homebrew/bin:"*) ;;
   *) [ -d /opt/homebrew/bin ] && export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH" ;;
 esac
+
+# gcloud components such as kubectl live in the SDK's bin folder. Load it
+# before ~/.local/bin so the ~/.local/bin/gcloud wrapper still comes first.
+[ -f /opt/homebrew/share/google-cloud-sdk/path.zsh.inc ] && . /opt/homebrew/share/google-cloud-sdk/path.zsh.inc
 export PATH="$HOME/.local/bin:$PATH"
 
 # Lets gcloud use NumPy, which speeds up its IAP tunnels. ~/.local/bin/gcloud
