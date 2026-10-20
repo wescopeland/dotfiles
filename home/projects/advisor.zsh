@@ -175,7 +175,8 @@ function logs() {
 }
 
 # ASSIST app (leaseboard-mobile): run the dev build on this Mac's iOS simulator or Android emulator
-# against a web preview on $ASPLAY_REMOTE. The remote runs Metro and builds the app (`mobile-preview`
+# against a web preview on $ASPLAY_REMOTE, or, for a PR with no web preview, the PR's app code against
+# the develop preview. The remote runs Metro and builds the app (`mobile-preview`
 # there), so this Mac needs no node or Xcode build: a JS change on the branch shows on a reload, and a
 # new app build is copied only when the branch's native code changes. Builds are kept in $ASPLAY_DIR.
 # The iOS simulator is one named asplay; the Android emulator is the AVD asplay, started when no
@@ -204,7 +205,7 @@ asplay() {
     /usr/bin/rsync -a "$remote:$art" "$dir.partial/" || { echo "asplay: could not copy the build from $remote"; return 1; }
     rm -rf "$dir" && mv "$dir.partial" "$dir"
   fi
-  echo "asplay: $id on $platform, API $(jq -r .apiUrl <<< "$info"), build ${build#*-}"
+  echo "asplay: $id on $platform, API $(jq -r '"\(.apiPreview) (\(.apiUrl))"' <<< "$info"), build ${build#*-}"
   if [ "$platform" = ios ]; then
     local udid runtime
     udid=$(xcrun simctl list devices --json | jq -r '[.devices[][] | select(.name == "asplay" and .isAvailable)][0].udid // empty')
