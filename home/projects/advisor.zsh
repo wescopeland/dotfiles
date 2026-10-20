@@ -173,3 +173,86 @@ function logs() {
 
   (cd "$repo" && ./bin/start)
 }
+
+# ASSIST app (leaseboard-mobile): run the dev build on this Mac's iOS simulator or Android emulator
+# against a web preview on $ASPLAY_REMOTE. The remote runs Metro and builds the app (`mobile-preview`
+# there), so this Mac needs no node or Xcode build: a JS change on the branch shows on a reload, and a
+# new app build is copied only when the branch's native code changes. Builds are kept in $ASPLAY_DIR.
+# The iOS simulator is one named asplay; the Android emulator is the AVD asplay, started when no
+# Android device is connected.
+# Usage: asplay [preview] [ios|android]   (default: develop ios), e.g. asplay pr-6888 android
+asplay() {
+  local id="${1:-develop}" platform="${2:-ios}"
+  local remote="${ASPLAY_REMOTE-server-mbp@server-mbp}" root="${ASPLAY_DIR:-$HOME/.cache/asplay}"
+  local app_id=com.apartmentadvisor.leaseboardMobile
+  case "$platform" in
+    ios|android) ;;
+    *) echo "Usage: asplay [preview] [ios|android]"; return 1 ;;
+  esac
+  local info url art
+  info=$(ssh "$remote" .local/bin/mobile-preview up "$id" --json) || return 1
+  url=$(jq -r ".metro.$platform" <<< "$info")
+  art=$(ssh "$remote" .local/bin/mobile-preview artifact "$id" "$platform") || {
+    echo "asplay: no $platform build matches the native code of $id yet. On $remote run: mobile-preview build $id $platform"
+    return 1
+  }
+  local build="${art:h:t}"
+  local dir="$root/$build"
+  mkdir -p "$root"
+  if [ ! -e "$dir/${art:t}" ]; then
+    rm -rf "$dir.partial" && mkdir -p "$dir.partial"
+    /usr/bin/rsync -a "$remote:$art" "$dir.partial/" || { echo "asplay: could not copy the build from $remote"; return 1; }
+    rm -rf "$dir" && mv "$dir.partial" "$dir"
+  fi
+  echo "asplay: $id on $platform, API $(jq -r .apiUrl <<< "$info"), build ${build#*-}"
+  if [ "$platform" = ios ]; then
+    local udid runtime
+    udid=$(xcrun simctl list devices --json | jq -r '[.devices[][] | select(.name == "asplay" and .isAvailable)][0].udid // empty')
+    if [ -z "$udid" ]; then
+      runtime=$(xcrun simctl list runtimes --json | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable)] | last | .identifier // empty')
+      [ -n "$runtime" ] || { echo "asplay: no iOS simulator runtime. Run: xcodebuild -downloadPlatform iOS"; return 1; }
+      udid=$(xcrun simctl create asplay "${ASPLAY_IOS_DEVICE:-iPhone 17 Pro}" "$runtime") || return 1
+    fi
+    xcrun simctl bootstatus "$udid" -b > /dev/null || return 1
+    open "$(xcode-select -p)/Applications/Simulator.app"
+    # The remote's HTTPS front uses a local CA until it has a Tailscale certificate.
+    if [ ! -f "$root/ca-added-$udid" ] && /usr/bin/rsync -a "$remote:.advisor/mobile-tls/mkcert-root.pem" "$root/ca.pem"; then
+      xcrun simctl keychain "$udid" add-root-cert "$root/ca.pem" && touch "$root/ca-added-$udid"
+    fi
+    if [ "$(cat "$root/installed-ios-$udid" 2> /dev/null)" != "$build" ]; then
+      xcrun simctl install "$udid" "$dir/ASSISTDev.app" || return 1
+      echo "$build" > "$root/installed-ios-$udid"
+    fi
+    # --initialUrl opens the bundle directly, with no "Open in ASSIST Dev?" prompt.
+    xcrun simctl launch --terminate-running-process "$udid" "$app_id" --initialUrl "$url" > /dev/null
+  else
+    export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+    local serial
+    serial=$(adb devices | awk 'NR > 1 && $2 == "device" { print $1; exit }')
+    if [ -z "$serial" ]; then
+      if ! "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx asplay; then
+        # The SDK's own avdmanager: Homebrew's looks for system images in its own folder.
+        echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n asplay \
+          -k "system-images;android-36;google_apis;arm64-v8a" -d pixel_8 > /dev/null || return 1
+      fi
+      ("$ANDROID_HOME/emulator/emulator" -avd asplay -no-snapshot-save > "$root/emulator.log" 2>&1 &)
+      local waited=0
+      until [ "$(adb shell getprop sys.boot_completed 2> /dev/null | tr -d '\r')" = 1 ]; do
+        if [ $waited -ge 240 ] || ! pgrep -qf "emulator.*-avd asplay"; then
+          echo "asplay: the emulator did not start; see $root/emulator.log"
+          return 1
+        fi
+        sleep 2
+        waited=$((waited + 2))
+      done
+      serial=$(adb devices | awk 'NR > 1 && $2 == "device" { print $1; exit }')
+    fi
+    if [ "$(cat "$root/installed-android-$serial" 2> /dev/null)" != "$build" ]; then
+      adb -s "$serial" install -r "$dir/app-debug.apk" > /dev/null || return 1
+      echo "$build" > "$root/installed-android-$serial"
+    fi
+    adb -s "$serial" shell am force-stop "$app_id"
+    adb -s "$serial" shell am start -a android.intent.action.VIEW \
+      -d "'leaseboard-mobile://expo-development-client/?url=$(jq -rn --arg u "$url" '$u | @uri')'" > /dev/null
+  fi
+}
