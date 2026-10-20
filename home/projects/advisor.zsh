@@ -215,10 +215,6 @@ asplay() {
     fi
     xcrun simctl bootstatus "$udid" -b > /dev/null || return 1
     open "$(xcode-select -p)/Applications/Simulator.app"
-    # The remote's HTTPS front uses a local CA until it has a Tailscale certificate.
-    if [ ! -f "$root/ca-added-$udid" ] && /usr/bin/rsync -a "$remote:.advisor/mobile-tls/mkcert-root.pem" "$root/ca.pem"; then
-      xcrun simctl keychain "$udid" add-root-cert "$root/ca.pem" && touch "$root/ca-added-$udid"
-    fi
     if [ "$(cat "$root/installed-ios-$udid" 2> /dev/null)" != "$build" ]; then
       xcrun simctl install "$udid" "$dir/ASSISTDev.app" || return 1
       echo "$build" > "$root/installed-ios-$udid"
