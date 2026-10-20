@@ -180,15 +180,29 @@ function logs() {
 # there), so this Mac needs no node or Xcode build: a JS change on the branch shows on a reload, and a
 # new app build is copied only when the branch's native code changes. Builds are kept in $ASPLAY_DIR.
 # The iOS simulator is one named asplay; the Android emulator is the AVD asplay, started when no
-# Android device is connected.
-# Usage: asplay [preview] [ios|android]   (default: develop ios), e.g. asplay pr-6888 android
+# Android device is connected. Each is created on first use.
+# Usage: asplay [preview] [--os=ios|android]   (default: develop, ios), e.g. asplay pr-6888 --os=android
+#        `--os android`, `--android`, `--ios`, and a bare `ios`/`android` work too.
 asplay() {
-  local id="${1:-develop}" platform="${2:-ios}"
+  local usage="Usage: asplay [preview] [--os=ios|android]   e.g. asplay pr-6888 --os=android"
+  local id=develop platform=ios
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --os=*) platform="${1#--os=}" ;;
+      --os) [ $# -ge 2 ] || { echo "$usage"; return 1; }; platform="$2"; shift ;;
+      --ios|ios) platform=ios ;;
+      --android|android) platform=android ;;
+      -h|--help) echo "$usage"; return 0 ;;
+      -*) echo "asplay: unknown option $1"; echo "$usage"; return 1 ;;
+      *) id="$1" ;;
+    esac
+    shift
+  done
   local remote="${ASPLAY_REMOTE-server-mbp@server-mbp}" root="${ASPLAY_DIR:-$HOME/.cache/asplay}"
   local app_id=com.apartmentadvisor.leaseboardMobile
   case "$platform" in
     ios|android) ;;
-    *) echo "Usage: asplay [preview] [ios|android]"; return 1 ;;
+    *) echo "asplay: --os is ios or android, not $platform"; return 1 ;;
   esac
   local info url art
   info=$(ssh "$remote" .local/bin/mobile-preview up "$id" --json) || return 1
