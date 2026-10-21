@@ -2,6 +2,7 @@
 
 : "${RAWEB_DIR:=$GITHUB_DIR/RAWeb}"
 : "${RA_BACKUP_REMOTE:=r2:backup/db-backup}"
+: "${RA_BACKUP_AGE_KEY:=$HOME/.config/age/ra-db-backup.txt}"
 WORKTREE_WORKSPACES+=("$RAWEB_DIR")
 
 alias sail='sh $([ -f sail ] && echo sail || echo vendor/bin/sail)'
@@ -36,6 +37,27 @@ function resync-ra-db() {
     return 1
   fi
 
+  # Backups uploaded since the switch to age are encrypted. Older ones are plain
+  # .tar.zst files until they rotate out. Check the key before anything is wiped.
+  local -a decrypt=(cat)
+  if [[ "$backup_file" == *.age ]]; then
+    if ! command -v age >/dev/null; then
+      print -P "%F{red}age is not installed. Run: brew install age%f"
+      return 1
+    fi
+    if [[ ! -f "$RA_BACKUP_AGE_KEY" ]]; then
+      print -P "%F{red}No age key at $RA_BACKUP_AGE_KEY. Save the key from the password manager there, or set RA_BACKUP_AGE_KEY. Aborting.%f"
+      return 1
+    fi
+    # age rejects a wrong key in the header, so one decrypted byte proves the key
+    # works without reading the whole file.
+    if (( $(age -d -i "$RA_BACKUP_AGE_KEY" "$backup_file" 2>/dev/null | head -c 1 | wc -c) != 1 )); then
+      print -P "%F{red}The key at $RA_BACKUP_AGE_KEY cannot decrypt $latest_backup. Aborting.%f"
+      return 1
+    fi
+    decrypt=(age -d -i "$RA_BACKUP_AGE_KEY")
+  fi
+
   print -P "%F{cyan}==> Stopping Sail (in case it's running)...%f"
   (cd "$raweb_dir" && vendor/bin/sail down)
 
@@ -44,11 +66,16 @@ function resync-ra-db() {
     sh -c 'rm -rf /var/lib/mysql/* /var/lib/mysql/.[!.]* 2>/dev/null || true'
 
   print -P "%F{cyan}==> Streaming restore into volume...%f"
-  pv "$backup_file" | zstd -dc | \
-    docker run --rm -i \
-      -v raweb_mariadb-data:/var/lib/mysql \
-      mariadb:10 \
-      bash -c 'tar -xf - --strip-components=1 -C /var/lib/mysql && rm -f /var/lib/mysql/xtrabackup_* /var/lib/mysql/backup-my.cnf && chown -R mysql:mysql /var/lib/mysql'
+  # pipe_fail makes a wrong key or a corrupt file stop the function here, instead
+  # of restoring an empty volume. The subshell keeps the option off elsewhere.
+  (
+    setopt pipe_fail
+    pv "$backup_file" | "${decrypt[@]}" | zstd -dc | \
+      docker run --rm -i \
+        -v raweb_mariadb-data:/var/lib/mysql \
+        mariadb:10 \
+        bash -c 'tar -xf - --strip-components=1 -C /var/lib/mysql && rm -f /var/lib/mysql/xtrabackup_* /var/lib/mysql/backup-my.cnf && chown -R mysql:mysql /var/lib/mysql'
+  )
 
   print -P "%F{cyan}==> Adding retroachievements@%% user (via skip-grant-tables)...%f"
   docker rm -f mariadb-fix >/dev/null 2>&1 || true
