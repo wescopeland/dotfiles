@@ -25,6 +25,7 @@ brew "hivemind"
 brew "rclone"
 brew "pv"
 brew "zstd"
+brew "age"
 brew "watchexec"
 cask "ngrok"
 
