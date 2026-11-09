@@ -22,4 +22,10 @@ cdplay() {
     "")   godot --path "$here/game" ;;
     *)    echo "cdplay: use no argument, host, or join ADDR"; return 1 ;;
   esac
+  # The host logs every paid claim; send it to the server for `tools/claims greed`.
+  local log="$HOME/Library/Application Support/Godot/app_userdata/Claims Department/claims.jsonl"
+  if [[ -f "$log" ]]; then
+    ssh "$remote" "mkdir -p Projects/claims-department/test-results/playtests" &&
+      rsync -a "$log" "${remote}:Projects/claims-department/test-results/playtests/claims.jsonl"
+  fi
 }
