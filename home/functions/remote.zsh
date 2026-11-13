@@ -15,8 +15,14 @@ function remote() {
   fi
 
   # The name is a hostname, such as a Tailscale machine name. A user name
-  # works too: `remote user@host`.
-  open "vnc://$1"
+  # works too: `remote user@host`. Without one, the user comes from the SSH
+  # config (`User` in ~/.ssh/config), so each Mac gets its own login name.
+  local target=$1
+  if [[ $target != *@* ]] && command -v ssh >/dev/null 2>&1; then
+    local user=$(ssh -G "$target" 2>/dev/null | awk '$1 == "user" { print $2; exit }')
+    [ -n "$user" ] && target="$user@$target"
+  fi
+  open "vnc://$target"
 }
 
 # Tab completion: the other machines on the Tailscale network. The first line
