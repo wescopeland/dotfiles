@@ -1,0 +1,10 @@
+# Global mise tools, shared by every node in the cluster. bin/install links
+# this file to ~/.config/mise/config.toml. Versions are exact so all nodes
+# resolve the same runtime; bump them here, then run `mise install` on each
+# node. Tools that only one machine needs go in ~/.config/mise/conf.d/*.toml.
+[tools]
+node = "24.22.1"
+pnpm = "10.34.6"
+
+[settings.node]
+gpg_verify = false

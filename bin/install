@@ -66,6 +66,7 @@ step "Symlinks"
 for file in .zshenv .zprofile .zshrc; do
   link "$DOTFILES/home/$file" "$HOME/$file"
 done
+link "$DOTFILES/config/mise/config.toml" "$HOME/.config/mise/config.toml"
 success "Symlinks are in place"
 
 step "Commit guard"
