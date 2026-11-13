@@ -81,6 +81,18 @@ for file in "$DOTFILES"/home/.{exports,aliases} \
 done
 unset file
 
+# Android SDK (leaseboard-mobile), only where it is installed.
+if [ -d "$HOME/Library/Android/sdk" ]; then
+  export ANDROID_HOME=$HOME/Library/Android/sdk
+  export PATH=$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$PATH
+fi
+
+# Unity CLI
+[ -f "$HOME/.unity/env" ] && . "$HOME/.unity/env"
+
+# bun completions
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+
 # Installers prepend the same directories again and again, so keep only the
 # first copy of each entry. The unique flag only acts on array writes, not on
 # `export PATH=...`, so the self-assignment does the actual work. Keep this
