@@ -9,26 +9,42 @@ alias sail='sh $([ -f sail ] && echo sail || echo vendor/bin/sail)'
 alias rascript='WINEDEBUG="-all" wine /Applications/RATools/rascript-cli.exe "${@/#-o\s+~/-o $HOME}"'
 alias ra-db-pull='rclone copy "$RA_BACKUP_REMOTE/$(rclone lsf "$RA_BACKUP_REMOTE/" --files-only | sort | tail -1)" ~/Downloads/ -P --multi-thread-streams=8 --s3-chunk-size=64M'
 
+# Restores the local RAWeb database from a backup in R2. With no argument it
+# uses the newest backup. Pass a file name from R2 to restore that one instead,
+# for example: resync-ra-db 2026-10-21T07-51-37-628Z.tar.zst
 function resync-ra-db() {
   setopt local_options err_return
   local raweb_dir="$RAWEB_DIR"
   local r2_prefix="$RA_BACKUP_REMOTE"
+  local backup_name="$1"
 
-  print -P "%F{cyan}==> Finding latest backup in Cloudflare R2...%f"
-  local latest_backup
-  latest_backup=$(rclone lsf "$r2_prefix/" --files-only | sort | tail -1)
-  if [[ -z "$latest_backup" ]]; then
+  print -P "%F{cyan}==> Listing backups in Cloudflare R2...%f"
+  local -a backups
+  backups=(${(f)"$(rclone lsf "$r2_prefix/" --files-only | sort)"})
+  if (( ${#backups} == 0 )); then
     print -P "%F{red}No backups found in $r2_prefix. Aborting.%f"
     return 1
   fi
-  print -P "%F{cyan}    Latest: $latest_backup%f"
 
-  local backup_file="$HOME/Downloads/$latest_backup"
+  # Check the name before anything is downloaded or wiped, so a typo cannot
+  # leave the local database empty.
+  if [[ -z "$backup_name" ]]; then
+    backup_name="${backups[-1]}"
+    print -P "%F{cyan}    Latest: $backup_name%f"
+  elif (( ${backups[(Ie)$backup_name]} )); then
+    print -P "%F{cyan}    Chosen: $backup_name%f"
+  else
+    print -P "%F{red}No backup named $backup_name in $r2_prefix. Aborting. Available backups:%f"
+    print -l -- "    "${^backups}
+    return 1
+  fi
+
+  local backup_file="$HOME/Downloads/$backup_name"
   if [[ -f "$backup_file" ]]; then
     print -P "%F{cyan}==> Already downloaded, skipping download.%f"
   else
     print -P "%F{cyan}==> Downloading from R2...%f"
-    rclone copyto "$r2_prefix/$latest_backup" "$backup_file" \
+    rclone copyto "$r2_prefix/$backup_name" "$backup_file" \
       -P --multi-thread-streams=8 --s3-chunk-size=64M
   fi
 
@@ -52,7 +68,7 @@ function resync-ra-db() {
     # age rejects a wrong key in the header, so one decrypted byte proves the key
     # works without reading the whole file.
     if (( $(age -d -i "$RA_BACKUP_AGE_KEY" "$backup_file" 2>/dev/null | head -c 1 | wc -c) != 1 )); then
-      print -P "%F{red}The key at $RA_BACKUP_AGE_KEY cannot decrypt $latest_backup. Aborting.%f"
+      print -P "%F{red}The key at $RA_BACKUP_AGE_KEY cannot decrypt $backup_name. Aborting.%f"
       return 1
     fi
     decrypt=(age -d -i "$RA_BACKUP_AGE_KEY")
