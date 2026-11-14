@@ -15,3 +15,13 @@ export PATH="$HOME/.local/bin:$PATH"
 # Lets gcloud use NumPy, which speeds up its IAP tunnels. ~/.local/bin/gcloud
 # does the same for launchd jobs, which do not read this file.
 export CLOUDSDK_PYTHON_SITEPACKAGES=1
+
+# An ssh login (a Tern tab or a cl-run agent on the other Mac) gets no SSH_AUTH_SOCK, so ssh
+# there cannot use the keys in the ssh-agent macOS runs for the desktop session. Point it at
+# that agent's socket, which gets a new path at every restart. A forwarded agent is kept.
+if [ ! -S "${SSH_AUTH_SOCK:-}" ]; then
+  for s in /var/run/com.apple.launchd.*/Listeners(N); do
+    [ -S "$s" ] && [ -O "$s" ] && { export SSH_AUTH_SOCK=$s; break; }
+  done
+  unset s
+fi
