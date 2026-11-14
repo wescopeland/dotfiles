@@ -15,6 +15,12 @@ typeset -gA _cluster_homes=(
 
 function _cluster_here() { [[ $(scutil --get LocalHostName 2>/dev/null) == $1 ]]; }
 
+# On the cluster Macs, web pages open on the Air (~/.cluster/bin/open, linked as
+# ~/.local/bin/open). Tools that read BROWSER instead of calling open do the same.
+if [[ -x $HOME/.local/bin/open && -d $HOME/.cluster ]] && { _cluster_here server-mbp || _cluster_here mbp-36gb; }; then
+  export BROWSER=$HOME/.local/bin/open
+fi
+
 # Prints "<mac> <path>" for a project name (any letter case), or fails.
 function _cluster_project() {
   emulate -L zsh
