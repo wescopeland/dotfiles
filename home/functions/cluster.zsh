@@ -20,15 +20,18 @@ if [[ -x $HOME/.local/bin/open && -d $HOME/.cluster ]] && { _cluster_here server
   export BROWSER=$HOME/.local/bin/open
 fi
 
-# Prints "<mac> <path>" for a project name (any letter case), or fails.
+# Prints "<mac> <path>" for a project name (any letter case), or fails. A /Projects
+# folder holding .cluster-home is a stand-in for a project on the other Mac (it lets
+# server-mbp's Tern open tabs there; ~/.cluster/docs/tern-multihost.md), so it is skipped.
 function _cluster_project() {
   emulate -L zsh
   local name=${1:l} mac entry entries
+  local list='for d in /Projects/*/; do [ -f "$d.cluster-home" ] || basename "$d"; done'
   for mac in server-mbp mbp-36gb; do
     if _cluster_here "$mac"; then
-      entries=$(command ls /Projects 2>/dev/null)
+      entries=$(sh -c "$list" 2>/dev/null)
     else
-      entries=$(ssh -o BatchMode=yes -o ConnectTimeout=3 "$mac" 'ls /Projects' 2>/dev/null)
+      entries=$(ssh -o BatchMode=yes -o ConnectTimeout=3 "$mac" "$list" 2>/dev/null)
     fi
     for entry in ${(f)entries}; do
       [[ ${entry:l} == $name ]] && { print -r -- "$mac /Projects/$entry"; return 0; }
