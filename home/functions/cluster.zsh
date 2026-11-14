@@ -74,16 +74,16 @@ typeset -gA _cluster_dev_urls=(
   raweb "http://localhost:64000"
 )
 
-# dev <project>: start the project's dev servers on its Mac, in a Tern session named
+# start <project>: start the project's dev servers on its Mac, in a Tern session named
 # "<folder> dev" that keeps running when this terminal closes. Running it again while
 # they are up changes nothing.
-function dev() {
+function start() {
   emulate -L zsh
-  (( $# == 1 )) || { echo "Usage: dev <project>  (known: ${(kj:, :)_cluster_dev_tabs})"; return 1; }
+  (( $# == 1 )) || { echo "Usage: start <project>  (known: ${(kj:, :)_cluster_dev_tabs})"; return 1; }
   local name=${1:l}
-  [[ -n ${_cluster_dev_tabs[$name]} ]] || { echo "dev: no dev recipe for '$1' (known: ${(kj:, :)_cluster_dev_tabs})"; return 1; }
+  [[ -n ${_cluster_dev_tabs[$name]} ]] || { echo "start: no dev recipe for '$1' (known: ${(kj:, :)_cluster_dev_tabs})"; return 1; }
   local found
-  found=$(_cluster_project "$name") || { echo "dev: no project named '$1'"; return 1; }
+  found=$(_cluster_project "$name") || { echo "start: no project named '$1'"; return 1; }
   local mac=${found%% *} dir=${found#* }
   local session="${dir:t} dev" url=${_cluster_dev_urls[$name]}
   local -a tabs=(${(s:|:)_cluster_dev_tabs[$name]})
@@ -125,4 +125,4 @@ function _cluster_project_names() {
 }
 (( $+functions[compdef] )) && compdef '_alternative "projects:project:_cluster_project_names" "files:file:_files"' code
 (( $+functions[compdef] )) && compdef _cluster_project_names term
-(( $+functions[compdef] )) && compdef "_values project ${(k)_cluster_dev_tabs}" dev
+(( $+functions[compdef] )) && compdef "_values project ${(k)_cluster_dev_tabs}" start
