@@ -79,9 +79,10 @@ typeset -gA _cluster_dev_urls=(
   raweb "http://localhost:64000"
 )
 
-# start <project>: start the project's dev servers on its Mac, in a Tern session named
-# "<folder> dev" that keeps running when this terminal closes. Running it again while
-# they are up changes nothing.
+# start <project>: start the project's dev servers on its Mac, in tabs named after each
+# command ("sail up", "pnpm dev") in the Tern session that already holds the project
+# (~/.cluster/bin/dev-tabs picks it). Busy tabs are left alone, so running it again
+# while they are up changes nothing.
 function start() {
   emulate -L zsh
   (( $# == 1 )) || { echo "Usage: start <project>  (known: ${(kj:, :)_cluster_dev_tabs})"; return 1; }
@@ -89,37 +90,19 @@ function start() {
   [[ -n ${_cluster_dev_tabs[$name]} ]] || { echo "start: no dev recipe for '$1' (known: ${(kj:, :)_cluster_dev_tabs})"; return 1; }
   local found
   found=$(_cluster_project "$name") || { echo "start: no project named '$1'"; return 1; }
-  local mac=${found%% *} dir=${found#* }
-  local session="${dir:t} dev" url=${_cluster_dev_urls[$name]}
-  local -a tabs=(${(s:|:)_cluster_dev_tabs[$name]})
+  local mac=${found%% *} dir=${found#* } url=${_cluster_dev_urls[$name]}
+  local -a args=("$dir" "$url" "${(@s:|:)_cluster_dev_tabs[$name]}")
 
-  # The whole check-and-start runs on the project's Mac in one go.
-  local script="cd ${(q)dir} || exit 1
-up() { curl -s -o /dev/null -m 3 ${(q)url}/; }
-if up && tern ls --json | jq -e --arg s ${(q)session} '.sessions[] | select(.name == \$s)' >/dev/null; then
-  echo 'already running'; exit 0
-fi
-tern kill session ${(q)session} >/dev/null 2>&1
-tern new session ${(q)session} --keep-open --cwd ${(q)dir} -- zsh -lic ${(q):-"${tabs[1]}; exec zsh -l"} >/dev/null || exit 1"
-  local tab
-  for tab in ${tabs[2,-1]}; do
-    script+="
-tern new tab ${(q)session} --keep-open --cwd ${(q)dir} -- zsh -lic ${(q):-"$tab; exec zsh -l"} >/dev/null"
-  done
-  script+="
-for i in \$(seq 1 90); do up && { echo started; exit 0; }; sleep 2; done
-echo 'still starting; check the tabs'"
-
-  echo "Starting ${dir:t} on $mac (Tern session \"$session\")..."
+  echo "Starting ${dir:t} on $mac..."
   local result
   if _cluster_here "$mac"; then
-    result=$(zsh -lc "$script")
+    result=$(~/.cluster/bin/dev-tabs "${args[@]}")
   else
-    result=$(ssh -o BatchMode=yes "$mac" "zsh -lc ${(q)script}")
+    result=$(ssh -o BatchMode=yes "$mac" "~/.cluster/bin/dev-tabs ${(j: :)${(q)args[@]}}")
   fi
   case $result in
-    *already*) echo "${dir:t} is already running: $url" ;;
-    *started*) echo "${dir:t} is up: $url" ;;
+    *'|started') echo "${dir:t} is up: $url (Tern session \"${result%|*}\")" ;;
+    *'|still starting') echo "${dir:t} is still starting; check the tabs in Tern session \"${result%|*}\"" ;;
     *) echo "$result"; return 1 ;;
   esac
 }
