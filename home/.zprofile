@@ -14,8 +14,10 @@ export INFOPATH="/opt/homebrew/share/info:${INFOPATH:-}"
 # OrbStack: command-line tools and integration
 source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 
-# Resolve tool runtimes through mise shims before system binaries.
-export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+# Resolve tool runtimes through mise shims before system binaries. ~/.local/bin
+# comes first, as in interactive shells, so its wrappers (agent-browser with the
+# stage write guard) also win in `zsh -lc`, which starts agents on the other Mac.
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
 
 # Java 17 for Gradle and the advisor previews. Login shells need it too, not
 # only interactive ones, so it lives here and not in .exports.
