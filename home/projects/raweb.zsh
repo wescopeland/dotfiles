@@ -83,6 +83,26 @@ function resync-ra-db() {
   docker run --rm -v raweb_mariadb-data:/var/lib/mysql alpine \
     sh -c 'rm -rf /var/lib/mysql/* /var/lib/mysql/.[!.]* 2>/dev/null || true'
 
+  # OrbStack hands the wiped space back to macOS a while later, and until then the
+  # restore cannot reuse it: on 2026-11-14 a restore started right after the wipe ran
+  # Docker's disk full on its last files. Wait until free space stops growing (at
+  # least 30 s, at most 5 min), then require enough of it for the unpacked database.
+  local min_free_gb=${RA_RESTORE_MIN_FREE_GB:-200} free_gb last_gb waited=0
+  free_gb=$(df -g / | awk 'NR == 2 {print $4}')
+  print -P "%F{cyan}==> Waiting for the wiped space to come back to macOS (${free_gb} GiB free)...%f"
+  while (( waited < 300 )); do
+    sleep 15
+    waited=$(( waited + 15 ))
+    last_gb=$free_gb
+    free_gb=$(df -g / | awk 'NR == 2 {print $4}')
+    (( waited >= 30 && free_gb <= last_gb )) && break
+  done
+  if (( free_gb < min_free_gb )); then
+    print -P "%F{red}Only ${free_gb} GiB free; the unpacked database needs about ${min_free_gb}. Free some space and run again (the download is kept).%f"
+    return 1
+  fi
+  print -P "%F{cyan}    ${free_gb} GiB free.%f"
+
   print -P "%F{cyan}==> Streaming restore into volume...%f"
   # pipe_fail makes a wrong key or a corrupt file stop the function here, instead
   # of restoring an empty volume. The subshell keeps the option off elsewhere.
