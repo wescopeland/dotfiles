@@ -82,10 +82,11 @@ typeset -gA _cluster_dev_urls=(
   raweb "http://localhost:64000"
 )
 
-# start <project>: start the project's dev servers on its Mac, in tabs named after each
-# command ("sail up", "pnpm dev") in the Tern session that already holds the project
-# (~/.cluster/bin/dev-tabs picks it). Busy tabs are left alone, so running it again
-# while they are up changes nothing.
+# start <project>: start the project's dev servers on its Mac, in tabs of server-mbp's
+# Tern (the one Tern host) named after each command ("sail up", "pnpm dev"), in the
+# session that already holds the project (~/.cluster/bin/dev-tabs picks it). A project
+# on mbp-36gb has a stand-in folder on server-mbp, and its tabs run there. Existing
+# tabs are left alone, so running it again while they are up changes nothing.
 function start() {
   emulate -L zsh
   (( $# == 1 )) || { echo "Usage: start <project>  (known: ${(kj:, :)_cluster_dev_tabs})"; return 1; }
@@ -94,14 +95,14 @@ function start() {
   local found
   found=$(_cluster_project "$name") || { echo "start: no project named '$1'"; return 1; }
   local mac=${found%% *} dir=${found#* } url=${_cluster_dev_urls[$name]}
-  local -a args=("$dir" "$url" "${(@s:|:)_cluster_dev_tabs[$name]}")
+  local -a args=("$mac" "$dir" "$url" "${(@s:|:)_cluster_dev_tabs[$name]}")
 
   echo "Starting ${dir:t} on $mac..."
   local result
-  if _cluster_here "$mac"; then
+  if _cluster_here server-mbp; then
     result=$(~/.cluster/bin/dev-tabs "${args[@]}")
   else
-    result=$(ssh -o BatchMode=yes "$mac" "~/.cluster/bin/dev-tabs ${(j: :)${(q)args[@]}}")
+    result=$(ssh -o BatchMode=yes server-mbp "~/.cluster/bin/dev-tabs ${(j: :)${(q)args[@]}}")
   fi
   case $result in
     *'|started') echo "${dir:t} is up: $url (Tern session \"${result%|*}\")" ;;
