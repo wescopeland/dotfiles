@@ -1,7 +1,12 @@
-# ApartmentAdvisor. The repo is at $ADVISOR_WORKSPACE, which defaults to $GITHUB_DIR/advisor-site.
+# ApartmentAdvisor. The repo is at $ADVISOR_WORKSPACE, which defaults to /Projects/advisor-site
+# where that is a real checkout (mbp-36gb), else $GITHUB_DIR/advisor-site (server-mbp).
 
 # Work
-export ADVISOR_WORKSPACE="${ADVISOR_WORKSPACE:-$GITHUB_DIR/advisor-site}"
+if [[ -d /Projects/advisor-site/.git && ! -f /Projects/advisor-site/.cluster-home ]]; then
+  export ADVISOR_WORKSPACE="${ADVISOR_WORKSPACE:-/Projects/advisor-site}"
+else
+  export ADVISOR_WORKSPACE="${ADVISOR_WORKSPACE:-$GITHUB_DIR/advisor-site}"
+fi
 export ADVISOR_DB_CREDENTIALS_DIR="$ADVISOR_WORKSPACE/db-admin/dev/standard-dev-db-credentials"
 
 WORKTREE_WORKSPACES+=("$ADVISOR_WORKSPACE")
