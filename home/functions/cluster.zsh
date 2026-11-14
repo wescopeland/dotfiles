@@ -5,7 +5,6 @@
 
 # Where a project lives when it is not in /Projects yet. /Projects/<name> on either Mac wins.
 typeset -gA _cluster_homes=(
-  raweb             "mbp-36gb:/Users/wescopeland/Documents/GitHub/RAWeb"
   oh-my-pi          "mbp-36gb:/Users/wescopeland/Documents/GitHub/oh-my-pi"
   psn-api           "mbp-36gb:/Users/wescopeland/Documents/GitHub/psn-api"
   advisor-site      "server-mbp:/Users/server-mbp/code/advisor-site"

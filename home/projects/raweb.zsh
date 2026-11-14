@@ -1,6 +1,7 @@
-# RetroAchievements (RAWeb). The repo is at $RAWEB_DIR, which defaults to $GITHUB_DIR/RAWeb.
+# RetroAchievements (RAWeb). The repo is at $RAWEB_DIR, which defaults to /Projects/RAWeb
+# (the cluster's shared path) where it exists, else $GITHUB_DIR/RAWeb.
 
-: "${RAWEB_DIR:=$GITHUB_DIR/RAWeb}"
+if [[ -d /Projects/RAWeb ]]; then : "${RAWEB_DIR:=/Projects/RAWeb}"; else : "${RAWEB_DIR:=$GITHUB_DIR/RAWeb}"; fi
 : "${RA_BACKUP_REMOTE:=r2:backup/db-backup}"
 : "${RA_BACKUP_AGE_KEY:=$HOME/.config/age/ra-db-backup.txt}"
 WORKTREE_WORKSPACES+=("$RAWEB_DIR")
