@@ -20,6 +20,14 @@ if [[ -x $HOME/.local/bin/open && -d $HOME/.cluster ]] && { _cluster_here server
   export BROWSER=$HOME/.local/bin/open
 fi
 
+# A bare `omp` typed in a shell starts the agent where ~/.cluster/bin/cl-agent places
+# it (the less busy Mac, or the Mac a stand-in project lives on), as Tern's ⇧⌘A does.
+# With arguments (`omp --restore …`, which Tern types to bring agents back, `omp stats`,
+# `omp session …`) it is plain omp on this Mac, since those name files on this Mac.
+if [[ -x $HOME/.cluster/bin/cl-agent ]] && { _cluster_here server-mbp || _cluster_here mbp-36gb; }; then
+  function omp() { if (( $# )); then command omp "$@"; else "$HOME/.cluster/bin/cl-agent"; fi; }
+fi
+
 # Prints "<mac> <path>" for a project name (any letter case), or fails. A /Projects
 # folder holding .cluster-home is a stand-in for a project on the other Mac (it lets
 # server-mbp's Tern open tabs there; ~/.cluster/docs/tern-multihost.md), so it is skipped.
